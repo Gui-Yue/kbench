@@ -1,48 +1,48 @@
 # kbench
 
-Evaluate KODE on `SWE`, `TB2`, and `Tau` through a standalone benchmark adapter layer, without coupling benchmark logic to the SDK repository.
+通过独立 benchmark adapter 层评测 KODE 在 `SWE`、`TB2`、`Tau` 上的表现，而不把 benchmark 逻辑耦合进 SDK 主仓库。
 
 ## Features
 
-- Runs `swebench-verified` through Harbor
-- Runs `terminal-bench@2.0` through Harbor
-- Runs official `tau-bench`
-- Uses the published npm package `@shareai-lab/kode-sdk`
-- Pulls benchmark frameworks dynamically at runtime
-- Supports GitHub Actions smoke tests and larger benchmark runs
-- Produces merged summaries and per-task result artifacts
+- 通过 Harbor 运行 `swebench-verified`
+- 通过 Harbor 运行 `terminal-bench@2.0`
+- 运行官方 `tau-bench`
+- 通过 npm 包 `@shareai-lab/kode-sdk` 调用 KODE
+- benchmark 框架在运行时动态拉取
+- 支持 GitHub Actions 冒烟测试和更大规模评测
+- 产出汇总报告和按题拆分的结果文件
 
 ## Quick Start
 
-This repository is designed to run benchmarks through GitHub Actions.
+这个仓库的主要使用方式是通过 GitHub Actions 发起评测。
 
-1. Configure repository secrets and variables:
+1. 先配置仓库 secrets 和 variables：
 
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL`
-- `OPENAI_API` if your provider needs it
-- optional provider keys such as `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MINIMAX_API_KEY`
+- 如果你的 provider 需要，再配置 `OPENAI_API`
+- 其他可选 provider key，例如 `ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`MINIMAX_API_KEY`
 
-2. Open the Actions tab and manually dispatch one of these workflows:
+2. 打开 Actions 页面，手动 dispatch 这些 workflow 之一：
 
 - `.github/workflows/eval-swe.yml`
 - `.github/workflows/eval-tb2.yml`
 - `.github/workflows/eval-tau.yml`
 
-3. Fill either:
+3. 下面两种方式二选一：
 
-- `model_name` as `provider/model`, or
-- `provider` plus `model`
+- 直接传 `provider/model` 格式的 `model_name`
+- 或者分别传 `provider` 和 `model`
 
-You can also override `base_url` at dispatch time for OpenAI-compatible providers.
+如果是 OpenAI-compatible provider，还可以在触发时直接填写 `base_url`。
 
-Example:
+例如：
 
 ```text
 glm/glm-5
 ```
 
-Recommended first smoke test for SWE:
+推荐先做一个 SWE 冒烟测试：
 
 ```text
 model_name=glm/glm-5
@@ -53,7 +53,7 @@ n_concurrent=1
 n_attempts=1
 ```
 
-## Architecture
+## 架构图
 
 ```text
             +----------------------+
@@ -65,7 +65,7 @@ n_attempts=1
           |                          |
           v                          v
   +---------------+          +---------------+
-  | Harbor Path   |          | Tau Path      |
+  | Harbor 路径   |          | Tau 路径      |
   | SWE / TB2     |          | Tau           |
   +-------+-------+          +-------+-------+
           |                          |
@@ -87,20 +87,20 @@ n_attempts=1
 
 ## Run on GitHub Actions
 
-Use the manual dispatch workflows:
+手动 dispatch 这些 workflow：
 
 - `.github/workflows/eval-swe.yml`
 - `.github/workflows/eval-tb2.yml`
 - `.github/workflows/eval-tau.yml`
 
-Minimum required input:
+最基本的输入：
 
 ```text
 provider=glm
 model=glm-5
 ```
 
-Typical repository configuration:
+常见仓库配置：
 
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL`
@@ -109,12 +109,12 @@ Typical repository configuration:
 - `GEMINI_API_KEY`
 - `MINIMAX_API_KEY`
 
-For OpenAI-compatible GLM routing, the harness reads:
+如果走 OpenAI-compatible 的 GLM 路由，实际读取的是：
 
 - `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`, unless `base_url` is provided in the workflow dispatch form
+- `OPENAI_BASE_URL`，除非你在 workflow dispatch 页面直接填写了 `base_url`
 
-Common workflow inputs:
+常用 workflow 输入：
 
 ### SWE / TB2
 
@@ -143,47 +143,47 @@ Common workflow inputs:
 - `num_trials`
 - `max_concurrency`
 
-## Local Status
+## 本地执行状态
 
-Local development is supported for validation, not as the primary benchmark entrypoint.
+本地开发目前支持校验和构建，但还不是主要评测入口。
 
-Supported locally:
+当前本地支持：
 
 - `npm ci`
 - `npm run typecheck`
 - `npm run bench:bundle:harbor`
 - `npm run bench:bundle:tau`
-- setup-script smoke checks such as dynamic Harbor or Tau clones
+- Harbor 和 Tau 的动态拉取 smoke 检查
 
-Not yet treated as a stable local benchmark interface:
+当前还不把下面这些当成稳定的本地评测接口：
 
-- one-command full local SWE run
-- one-command full local TB2 run
-- one-command full local Tau run
+- 一条命令完整跑 SWE
+- 一条命令完整跑 TB2
+- 一条命令完整跑 Tau
 
-If you want reproducible benchmark execution, use GitHub Actions first.
+如果你要稳定、可复现地执行 benchmark，优先走 GitHub Actions。
 
 ## Outputs
 
 ### SWE / TB2
 
-Each run produces:
+每次 run 会产出：
 
 - shard artifacts
-- per-task `result.json`
+- 每题的 `result.json`
 - `agent/kode-result.json`
-- merged summary markdown
-- merged results JSON
-- merged per-test details JSON
+- 合并后的 summary markdown
+- 合并后的 results JSON
+- 合并后的 per-test details JSON
 
 ### Tau
 
-Each run produces:
+每次 run 会产出：
 
-- final metrics JSON
-- per-task reward data
-- per-task trajectory data
+- 最终 metrics JSON
+- 每题 reward 数据
+- 每题 trajectory 数据
 
-## Chinese Version
+## English Version
 
-See `README.zh-CN.md`.
+见 `README.md`。

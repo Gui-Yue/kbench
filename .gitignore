@@ -1,0 +1,7 @@
+node_modules/
+.bench/
+benchmark-runs/
+.tmp/
+__pycache__/
+*.pyc
+.env

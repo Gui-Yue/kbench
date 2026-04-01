@@ -140,6 +140,22 @@ kbench run --benchmark swe --harness kode-agent-sdk --model-name glm/glm-5 --ins
 kbench run --benchmark swe --harness codex --model-name openai/gpt-5.3-codex --base-url https://apikey.soxio.me/openai --api-key-env OPENAI_API_KEY --config-mode inherit --instruction "Fix the bug"
 ```
 
+现在顶层帮助已经是一份完整的 CLI 参考手册：
+
+```bash
+kbench --help
+```
+
+当前顶层帮助页会覆盖：
+
+- 命令树和 benchmark 列表
+- 内置 harness 能力矩阵
+- `run`、`benchmark run`、`harness *`、`adapter *` 的必填/可选参数
+- 参数类型、默认值和适用范围说明
+- SAE 专用参数
+- 基于环境变量的配置项，例如 provider 凭证和生成型 CLI adapter 的桥接变量
+- timeout 策略和端到端示例
+
 当前内置 harness 能力：
 
 - `kode-agent-sdk`：支持 `swe`、`tb2`、`sae` 的 task 模式，以及 `tau` 的 session 模式

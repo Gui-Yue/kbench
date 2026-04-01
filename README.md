@@ -140,6 +140,22 @@ kbench run --benchmark swe --harness kode-agent-sdk --model-name glm/glm-5 --ins
 kbench run --benchmark swe --harness codex --model-name openai/gpt-5.3-codex --base-url https://apikey.soxio.me/openai --api-key-env OPENAI_API_KEY --config-mode inherit --instruction "Fix the bug"
 ```
 
+Top-level help is now a full CLI reference:
+
+```bash
+kbench --help
+```
+
+The top-level help page currently includes:
+
+- command tree and benchmark list
+- built-in harness matrix
+- required and optional parameters for `run`, `benchmark run`, `harness *`, and `adapter *`
+- parameter types, defaults, and applicability notes
+- SAE-specific options
+- environment-variable based configuration such as provider credentials and generated CLI-adapter bridge vars
+- timeout policy and end-to-end examples
+
 Current built-in harness behavior:
 
 - `kode-agent-sdk`: task mode for `swe`, `tb2`, and `sae`, session mode for `tau`

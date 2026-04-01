@@ -68,6 +68,7 @@
 - 如果需要，再配置 `ANTHROPIC_BASE_URL`
 - `GEMINI_API_KEY`
 - 如果需要，再配置 `GEMINI_BASE_URL`
+- 兼容接受 `GOOGLE_GEMINI_BASE_URL`
 - 如果希望在 Actions 里复用固定的 SAE agent 身份，再配置 `KAGGLE_AGENT_ID`
 - 如果希望在 Actions 里复用固定的 SAE agent 身份，再配置 `KAGGLE_AGENT_API_KEY`
 

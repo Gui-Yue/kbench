@@ -68,6 +68,7 @@ This repository is primarily intended to run benchmarks through GitHub Actions.
 - `ANTHROPIC_BASE_URL` if needed
 - `GEMINI_API_KEY`
 - `GEMINI_BASE_URL` if needed
+- `GOOGLE_GEMINI_BASE_URL` is also accepted for compatibility
 - `KAGGLE_AGENT_ID` if you want to reuse a fixed SAE agent identity in Actions
 - `KAGGLE_AGENT_API_KEY` if you want to reuse a fixed SAE agent identity in Actions
 

@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-index", type=int, default=0)
     parser.add_argument("--end-index", type=int, default=-1)
     parser.add_argument("--task-ids", type=int, nargs="+")
+    parser.add_argument("--run-id", type=str)
     parser.add_argument("--log-dir", type=Path, default=Path("benchmark-runs/tau"))
     parser.add_argument("--max-concurrency", type=int, default=1)
     parser.add_argument("--seed", type=int, default=10)
@@ -166,7 +167,9 @@ def main() -> None:
 
     time_str = datetime.now().strftime("%m%d%H%M%S")
     output_path = (
-        args.log_dir
+        args.log_dir / "results.json"
+        if args.run_id
+        else args.log_dir
         / f"kode-tau-{args.env}-{model_id.replace('/', '-')}-{time_str}.json"
     )
 
@@ -236,6 +239,7 @@ def main() -> None:
     metrics = display_metrics(results)
     payload = {
         "config": {
+            "run_id": args.run_id,
             "model_name": args.model_name,
             "env": args.env,
             "user_model": args.user_model,

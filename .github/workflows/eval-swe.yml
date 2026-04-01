@@ -218,22 +218,23 @@ jobs:
           npm run bench:bundle:cli
 
       - name: Run SWE benchmark shard
-        run: ./bin/kbench benchmark run --benchmark swe --harness "$KBENCH_HARNESS" --model-name "$MODEL_NAME"
+        run: ./bin/kbench benchmark run --benchmark swe --harness "$KBENCH_HARNESS" --model-name "$MODEL_NAME" --run-id "$RUN_ID"
 
       - name: Summarize shard outputs
         if: always()
         shell: bash
         run: |
           shopt -s nullglob
+          RUN_DIR=".kbench/runs/$RUN_ID"
           echo "## Shard ${{ matrix.shard_label }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tasks in shard: ${{ matrix.task_count }}" >> "$GITHUB_STEP_SUMMARY"
-          for result in benchmark-runs/harbor/*/result.json; do
+          for result in "$RUN_DIR"/result.json; do
             echo "### $(dirname "$result")" >> "$GITHUB_STEP_SUMMARY"
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat "$result" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           done
-          for result in benchmark-runs/harbor/*/*/result.json; do
+          for result in "$RUN_DIR"/*/result.json; do
             echo "#### $(dirname "$result")" >> "$GITHUB_STEP_SUMMARY"
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat "$result" >> "$GITHUB_STEP_SUMMARY"
@@ -246,7 +247,7 @@ jobs:
         with:
           name: swe-benchmark-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard_label }}
           path: |
-            benchmark-runs/harbor
+            .kbench/runs/${{ env.RUN_ID }}
             .bench
 
   aggregate:

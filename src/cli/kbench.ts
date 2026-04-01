@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { runSaeBenchmark, parseBoolean } from '../benchmark/sae/runner.js';
+import { buildBenchmarkScriptSpec } from './benchmark-script.js';
 import type { BenchmarkId, SessionSpec, TaskEnvelope } from '../core/protocol.js';
 import { materializeArtifactFile, writeArtifactManifest, type ArtifactManifestEntry } from '../core/artifacts.js';
 import { createRunLayout, finalizeRun, initializeRun, recordResult } from '../core/run-layout.js';
@@ -60,6 +61,9 @@ interface BenchmarkRunCliArgs {
   baseUrl?: string;
   runId: string;
   runDir: string;
+  runDirProvided: boolean;
+  workDirProvided: boolean;
+  storeDirProvided: boolean;
   workDir?: string;
   storeDir?: string;
   timeoutMs?: number;
@@ -236,10 +240,11 @@ function renderHelp(): string {
     '      --base-url <url>',
     '      --run-id <id>                    default: auto-generated',
     '      --run-dir <path>                 default: ./.kbench/runs/<run-id>',
-    '      --workdir <path>',
-    '      --store-dir <path>',
+    '      Note: swe/tb2 write Harbor results into <run-dir>; tau writes artifacts inside <run-dir>.',
     '    SAE-only options:',
     '      --sae-api-base <url>             default: https://www.kaggle.com/api/v1',
+    '      --workdir <path>',
+    '      --store-dir <path>',
     '      --sae-agent-id-file <path>       default: ~/.kaggle-agent-id',
     '      --sae-api-key-file <path>        default: ~/.kaggle-agent-api-key',
     '      --sae-register-if-missing <bool> default: false',
@@ -365,13 +370,13 @@ function renderHelp(): string {
     '      type: path',
     '      required: no',
     '      default: current working directory',
-    '      applies to: kbench run and benchmark run',
+    '      applies to: kbench run',
     '',
     '    --store-dir',
     '      type: path',
     '      required: no',
     '      default: harness-specific',
-    '      applies to: kbench run and benchmark run',
+    '      applies to: kbench run',
     '',
     '    --temperature',
     '      type: string/number',
@@ -466,6 +471,17 @@ function renderHelp(): string {
     '      required: no',
     '      default: ./.kbench/runs/<run-id>',
     '      applies to: benchmark run',
+    '      notes: swe/tb2 write Harbor results into <run-dir>; tau writes artifacts inside <run-dir>; sae uses <run-dir> as the exact run directory',
+    '',
+    '    --workdir',
+    '      type: path',
+    '      required: no',
+    '      applies to: benchmark run --benchmark sae',
+    '',
+    '    --store-dir',
+    '      type: path',
+    '      required: no',
+    '      applies to: benchmark run --benchmark sae',
     '',
     '    --sae-api-base',
     '      type: url',
@@ -604,7 +620,7 @@ function renderHelp(): string {
     '  provider credentials used by benchmark flows and harness runtimes',
     '    OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_API',
     '    ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL',
-    '    GEMINI_API_KEY / GEMINI_BASE_URL',
+    '    GEMINI_API_KEY / GEMINI_BASE_URL / GOOGLE_GEMINI_BASE_URL',
     '',
     '  generated cli-harness adapters',
     '    KBENCH_CLI_COMMAND',
@@ -721,6 +737,8 @@ function parseBenchmarkRunArgs(argv: string[]): BenchmarkRunCliArgs {
   const benchmark = values.get('benchmark') as BenchmarkId | undefined;
   const harness = values.get('harness') || 'kode-agent-sdk';
   const modelName = values.get('model-name');
+  const rawRunId = values.get('run-id');
+  const rawRunDir = values.get('run-dir');
 
   if (!benchmark || !builtinBenchmarks.includes(benchmark)) {
     throw new Error('benchmark run requires --benchmark <swe|tb2|tau|sae>.');
@@ -729,8 +747,15 @@ function parseBenchmarkRunArgs(argv: string[]): BenchmarkRunCliArgs {
     throw new Error('benchmark run requires --model-name <provider/model>.');
   }
 
-  const runId = values.get('run-id') || nowId(`benchmark-${benchmark}`);
-  const runDir = path.resolve(values.get('run-dir') || path.join(process.cwd(), '.kbench', 'runs', runId));
+  let runId = rawRunId || nowId(`benchmark-${benchmark}`);
+  let runDir = path.resolve(rawRunDir || path.join(process.cwd(), '.kbench', 'runs', runId));
+  if (rawRunDir && benchmark !== 'sae') {
+    const derivedRunId = path.basename(runDir);
+    if (rawRunId && rawRunId !== derivedRunId) {
+      throw new Error(`benchmark run requires --run-id to match basename(--run-dir) for ${benchmark}. Received run-id=${rawRunId}, run-dir=${runDir}`);
+    }
+    runId = derivedRunId;
+  }
   return {
     benchmark,
     harness,
@@ -738,6 +763,9 @@ function parseBenchmarkRunArgs(argv: string[]): BenchmarkRunCliArgs {
     baseUrl: values.get('base-url'),
     runId,
     runDir,
+    runDirProvided: Boolean(rawRunDir),
+    workDirProvided: values.has('workdir'),
+    storeDirProvided: values.has('store-dir'),
     workDir: values.get('workdir') ? path.resolve(values.get('workdir') as string) : undefined,
     storeDir: values.get('store-dir') ? path.resolve(values.get('store-dir') as string) : undefined,
     timeoutMs: values.get('sae-timeout-ms') ? Number(values.get('sae-timeout-ms')) : undefined,
@@ -772,6 +800,9 @@ async function runBenchmarkCommand(argv: string[]): Promise<void> {
   const args = parseBenchmarkRunArgs(argv);
   if (args.harness !== 'kode-agent-sdk') {
     throw new Error(`benchmark run currently supports only --harness kode-agent-sdk. Received: ${args.harness}`);
+  }
+  if (args.benchmark !== 'sae' && (args.workDirProvided || args.storeDirProvided)) {
+    throw new Error(`benchmark run for ${args.benchmark} does not support --workdir or --store-dir. Use kbench run for single-instance execution, or benchmark run --benchmark sae for exam flows.`);
   }
 
   if (args.benchmark === 'sae') {
@@ -808,31 +839,14 @@ async function runBenchmarkCommand(argv: string[]): Promise<void> {
   }
 
   const repoRoot = getRepoRoot();
-  const scriptPath = args.benchmark === 'tau'
-    ? path.join(repoRoot, 'scripts', 'bench', 'run-tau-benchmark.sh')
-    : path.join(repoRoot, 'scripts', 'bench', 'run-harbor-benchmark.sh');
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    MODEL_NAME: args.modelName,
-    KBENCH_HARNESS: args.harness,
-    NO_REBUILD: process.env.NO_REBUILD || '1',
-  };
-
-  if (args.baseUrl) {
-    const { provider } = parseModelName(args.modelName);
-    const prefix = resolveEnvPrefix(provider);
-    env[`${prefix}_BASE_URL`] = args.baseUrl;
-  }
-
-  if (args.benchmark === 'swe') {
-    env.DATASET_NAME = 'swebench-verified';
-    env.DATASET_VERSION = '1.0';
-    env.KBENCH_BENCHMARK = 'swe';
-  } else if (args.benchmark === 'tb2') {
-    env.DATASET_NAME = 'terminal-bench';
-    env.DATASET_VERSION = '2.0';
-    env.KBENCH_BENCHMARK = 'tb2';
-  }
+  const { scriptPath, env } = buildBenchmarkScriptSpec(repoRoot, {
+    benchmark: args.benchmark,
+    harness: args.harness,
+    modelName: args.modelName,
+    baseUrl: args.baseUrl,
+    runId: args.runId,
+    runDir: args.runDir,
+  });
 
   const exitCode = await spawnCommand('bash', [scriptPath], {
     cwd: repoRoot,

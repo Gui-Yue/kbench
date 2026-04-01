@@ -86,7 +86,7 @@ function resolveGeminiApiKey(apiKeyEnv?: string): string | undefined {
 }
 
 function resolveGeminiBaseUrl(baseUrl?: string): string | undefined {
-  return baseUrl || process.env.GOOGLE_GEMINI_BASE_URL;
+  return baseUrl || process.env.GEMINI_BASE_URL || process.env.GOOGLE_GEMINI_BASE_URL;
 }
 
 function ensureGeminiHome(homeDir: string): void {
@@ -117,6 +117,7 @@ function buildGeminiEnv(homeDir: string, apiKey?: string, baseUrl?: string): Nod
     env.GEMINI_API_KEY = apiKey;
   }
   if (baseUrl) {
+    env.GEMINI_BASE_URL = baseUrl;
     env.GOOGLE_GEMINI_BASE_URL = baseUrl;
   }
   return env;

@@ -108,6 +108,7 @@ jobs:
     env:
       KBENCH_HARNESS: ${{ github.event.inputs.harness || 'kode-agent-sdk' }}
       MODEL_NAME: ${{ format('{0}/{1}', github.event.inputs.provider, github.event.inputs.model) }}
+      RUN_ID: tau-${{ github.run_id }}-${{ github.run_attempt }}
       TAU_ENV: ${{ github.event.inputs.tau_env || 'retail' }}
       TAU_TASK_SPLIT: ${{ github.event.inputs.task_split || 'test' }}
       TAU_USER_MODEL: ${{ github.event.inputs.user_model || vars.OPENAI_MODEL_ID || vars.EVAL_MODEL || 'gpt-4o' }}
@@ -184,7 +185,7 @@ jobs:
           npm run bench:bundle:cli
 
       - name: Run Tau benchmark
-        run: ./bin/kbench benchmark run --benchmark tau --harness "$KBENCH_HARNESS" --model-name "$MODEL_NAME"
+        run: ./bin/kbench benchmark run --benchmark tau --harness "$KBENCH_HARNESS" --model-name "$MODEL_NAME" --run-id "$RUN_ID"
 
       - name: Summarize Tau outputs
         if: always()
@@ -192,7 +193,8 @@ jobs:
         run: |
           shopt -s nullglob
           mkdir -p .bench
-          for result in benchmark-runs/tau/*.json; do
+          RUN_DIR=".kbench/runs/$RUN_ID"
+          for result in "$RUN_DIR"/*.json; do
             report=".bench/$(basename "$result" .json)-report.md"
             python3 scripts/bench/render-tau-report.py \
               --input "$result" \
@@ -206,5 +208,5 @@ jobs:
         with:
           name: tau-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            benchmark-runs/tau
+            .kbench/runs/${{ env.RUN_ID }}
             .bench

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "kbench.adapter/v1",
+  "id": "my-python-runner",
+  "kind": "python",
+  "entry": "./runner.py",
+  "version": "0.1.0",
+  "supportedBenchmarks": ["tau"],
+  "capabilities": {
+    "runModes": ["session"],
+    "machineReadableStdout": true,
+    "supportsPatchOutput": false,
+    "supportsTrajectory": true,
+    "supportsToolCallTrace": true,
+    "supportsResume": false,
+    "supportsImages": false,
+    "supportsSandboxBridge": false,
+    "supportsPromptTemplate": false
+  }
+}

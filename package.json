@@ -1,0 +1,25 @@
+{
+  "name": "kbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "kbench": "./bin/kbench"
+  },
+  "scripts": {
+    "bench:bundle:cli": "mkdir -p .bench && esbuild src/cli/kbench.ts --bundle --platform=node --format=cjs --target=node20 --outfile=.bench/kbench.cjs",
+    "prepare": "npm run bench:bundle:cli",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@shareai-lab/kode-sdk": "^2.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.57",
+    "esbuild": "^0.25.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -17,6 +17,8 @@
     "@shareai-lab/kode-sdk": "^2.7.5"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.7.1",
+    "@emnapi/runtime": "^1.7.1",
     "@types/node": "^20.17.57",
     "esbuild": "^0.25.4",
     "typescript": "^5.8.3",

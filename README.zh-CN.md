@@ -55,6 +55,13 @@
 `adapter generate` 已经是当前仓库里动态 `custom-adapter` bootstrap 的一部分。
 但当前实现仍然是基于本地仓库检查和启发式推断，不是“仓库内置远程 LLM 动态生成 adapter”。
 
+## 环境要求
+
+- 推荐使用 Node.js `24.x` 作为本地与 CI 运行时
+- 预期使用 npm `11.x`
+- `npm ci` 是标准的干净安装路径，并已作为 PR 质量门禁的一部分
+- benchmark workflow 仍会按需安装额外运行时依赖，例如 Python、Harbor、tau-bench
+
 ## Quick Start
 
 这个仓库的主要用法仍然是通过 GitHub Actions 发起评测。

@@ -93,9 +93,6 @@ export function extractPatchSinceBaseline(baseline: GitPatchBaseline): string | 
   if ((baseline.beforeDiff || '') === afterDiff) {
     return undefined;
   }
-  if (baseline.beforeDiff && baseline.beforeDiff.trim()) {
-    return undefined;
-  }
   return afterDiff;
 }
 

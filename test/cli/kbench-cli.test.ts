@@ -99,4 +99,59 @@ describe('kbench CLI', () => {
     expect(payload.benchmarkError.message).toContain(missingIdFile);
     expect(payload.benchmarkError.message).toContain(missingKeyFile);
   });
+
+  it('rejects invalid sae-timeout-ms values before running the benchmark', async () => {
+    const result = await runKbench([
+      'benchmark',
+      'run',
+      '--benchmark',
+      'sae',
+      '--harness',
+      'kode-agent-sdk',
+      '--model-name',
+      'openai/gpt-4.1-mini',
+      '--sae-timeout-ms',
+      'NaN',
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Invalid --sae-timeout-ms. Expected a positive integer.');
+  });
+
+  it('rejects invalid sae-poll-interval-ms values before running the benchmark', async () => {
+    const result = await runKbench([
+      'benchmark',
+      'run',
+      '--benchmark',
+      'sae',
+      '--harness',
+      'kode-agent-sdk',
+      '--model-name',
+      'openai/gpt-4.1-mini',
+      '--sae-poll-interval-ms',
+      '0',
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Invalid --sae-poll-interval-ms. Expected a positive integer.');
+  });
+
+  it('rejects invalid timeout-ms values before running a single instance', async () => {
+    const result = await runKbench([
+      'run',
+      '--benchmark',
+      'swe',
+      '--harness',
+      'kode-agent-sdk',
+      '--model-name',
+      'openai/gpt-4.1-mini',
+      '--instruction',
+      'Fix the bug',
+      '--timeout-ms',
+      'NaN',
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Invalid --timeout-ms. Expected a positive integer.');
+  });
 });

@@ -55,6 +55,13 @@ Evaluate `SWE`, `TB2`, `Tau`, and `SAE` through a unified `kbench` CLI plus benc
 `adapter generate` is part of the current runtime path for bootstrapping dynamic `custom-adapter` integrations.
 Today this generator is heuristic and repository-inspection-based; this repo does not yet ship a built-in remote LLM adapter generator.
 
+## Environment Requirements
+
+- Node.js `24.x` is the recommended local and CI runtime for this repository
+- npm `11.x` is the expected package manager line
+- `npm ci` is the canonical clean-install path and is enforced by the PR quality gate
+- Benchmark workflows still install their own extra runtime dependencies such as Python/Harbor/tau-bench as needed
+
 ## Quick Start
 
 This repository is primarily intended to run benchmarks through GitHub Actions.

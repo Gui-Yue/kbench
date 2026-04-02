@@ -18,7 +18,7 @@ OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/.kbench/runs}"
 RUN_ID="${RUN_ID:-${DATASET_NAME//[^a-zA-Z0-9_-]/-}-$(date +%Y%m%d-%H%M%S)}"
 N_CONCURRENT="${N_CONCURRENT:-1}"
 N_ATTEMPTS="${N_ATTEMPTS:-1}"
-N_TASKS="${N_TASKS:-1}"
+N_TASKS="${N_TASKS:-}"
 TASK_NAMES="${TASK_NAMES:-}"
 TIMEOUT_MULTIPLIER="${TIMEOUT_MULTIPLIER:-1.0}"
 HARBOR_MAX_RETRIES="${HARBOR_MAX_RETRIES:-0}"
@@ -96,7 +96,7 @@ if [[ -n "$TASK_NAMES" ]]; then
       CMD+=("$HARBOR_TASK_NAME_OPTION" "$trimmed")
     fi
   done
-else
+elif [[ -n "$N_TASKS" ]]; then
   CMD+=(--n-tasks "$N_TASKS")
 fi
 

@@ -23,12 +23,28 @@ export interface ArtifactManifest {
   files: ArtifactManifestEntry[];
 }
 
+export function resolveMaterializedTargetPath(baseDir: string, relativeTargetPath: string): string {
+  const normalized = path.posix.normalize(relativeTargetPath.replace(/\\/g, '/'));
+  if (!normalized || normalized === '.' || normalized.startsWith('../') || normalized === '..' || path.isAbsolute(normalized)) {
+    throw new Error(`Unsafe materialized output path: ${relativeTargetPath}`);
+  }
+
+  const resolvedBaseDir = path.resolve(baseDir);
+  const targetPath = path.resolve(resolvedBaseDir, normalized);
+  const relativeToBase = path.relative(resolvedBaseDir, targetPath);
+  if (relativeToBase === '' || relativeToBase.startsWith('..') || path.isAbsolute(relativeToBase)) {
+    throw new Error(`Materialized output path escaped target directory: ${relativeTargetPath}`);
+  }
+
+  return targetPath;
+}
+
 export async function materializeArtifactFile(
   sourcePath: string,
   artifactsDir: string,
   relativeTargetPath: string
 ): Promise<string> {
-  const targetPath = path.join(artifactsDir, relativeTargetPath);
+  const targetPath = resolveMaterializedTargetPath(artifactsDir, relativeTargetPath);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   await fs.promises.copyFile(sourcePath, targetPath);
   return targetPath;

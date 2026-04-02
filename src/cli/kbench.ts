@@ -241,6 +241,7 @@ function renderHelp(): string {
     '      --run-id <id>                    default: auto-generated',
     '      --run-dir <path>                 default: ./.kbench/runs/<run-id>',
     '      Note: swe/tb2 write Harbor results into <run-dir>; tau writes artifacts inside <run-dir>.',
+    '      Note: swe/tb2 default to Harbor\'s full task set unless the Harbor bridge environment narrows task selection.',
     '    SAE-only options:',
     '      --sae-api-base <url>             default: https://www.kaggle.com/api/v1',
     '      --workdir <path>',
@@ -472,6 +473,7 @@ function renderHelp(): string {
     '      default: ./.kbench/runs/<run-id>',
     '      applies to: benchmark run',
     '      notes: swe/tb2 write Harbor results into <run-dir>; tau writes artifacts inside <run-dir>; sae uses <run-dir> as the exact run directory',
+    '      notes: swe/tb2 default to Harbor\'s full task set unless external Harbor task selection env narrows it',
     '',
     '    --workdir',
     '      type: path',
@@ -869,6 +871,66 @@ function classifyStepStatus(result: LegacyStepResult): ResultStatus {
   return result.ok ? 'ok' : 'agent_error';
 }
 
+function classifyRunFailure(error: unknown, harness: string): { status: ResultStatus; failureKind: string; message: string; stack?: string } {
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? error.stack : undefined;
+  const nodeError = error as NodeJS.ErrnoException | undefined;
+
+  if (harness === 'custom-adapter' && /adapter/i.test(message)) {
+    return {
+      status: 'invalid_adapter',
+      failureKind: 'adapter_runtime_error',
+      message,
+      stack,
+    };
+  }
+
+  if (/does not declare support|does not support required/i.test(message)) {
+    return {
+      status: 'unsupported_capability',
+      failureKind: 'unsupported_capability',
+      message,
+      stack,
+    };
+  }
+
+  if (nodeError?.code && ['ENOENT', 'EACCES', 'EPERM'].includes(nodeError.code)) {
+    return {
+      status: 'infra_error',
+      failureKind: nodeError.code.toLowerCase(),
+      message,
+      stack,
+    };
+  }
+
+  return {
+    status: 'infra_error',
+    failureKind: 'runtime_exception',
+    message,
+    stack,
+  };
+}
+
+function normalizeRunFailure(args: RunCliArgs, error: unknown, startedAt: string, endedAt: string): ResultEnvelope {
+  const classified = classifyRunFailure(error, args.harness);
+  return {
+    benchmark: args.benchmark,
+    harness: args.harness,
+    instanceId: args.instanceId,
+    ok: false,
+    status: classified.status,
+    failureKind: classified.failureKind,
+    startedAt,
+    endedAt,
+    elapsedMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
+    error: {
+      type: classified.failureKind,
+      message: classified.message,
+      stack: classified.stack,
+    },
+  };
+}
+
 function normalizeTaskResult(args: RunCliArgs, result: LegacyBenchResult, startedAt: string, endedAt: string): ResultEnvelope {
   return {
     benchmark: args.benchmark,
@@ -1194,6 +1256,15 @@ async function materializeCustomAdapterOutputs(
 
   await fs.promises.mkdir(instanceArtifactsDir, { recursive: true });
 
+  const toSafeAdapterRelativeName = (candidatePath: string, fallbackName: string): string => {
+    const normalized = path.posix.normalize(candidatePath.replace(/\\/g, '/').replace(/^\.\/+/, ''));
+    if (!normalized || normalized === '.' || normalized === '..' || normalized.startsWith('../') || path.isAbsolute(normalized)) {
+      const basename = path.posix.basename(candidatePath.replace(/\\/g, '/'));
+      return basename && basename !== '.' && basename !== '..' ? basename : fallbackName;
+    }
+    return normalized;
+  };
+
   const stdoutPath = path.join(instanceArtifactsDir, 'adapter.stdout.txt');
   await fs.promises.writeFile(stdoutPath, result.stdout, 'utf-8');
   manifestEntries.push({
@@ -1234,11 +1305,11 @@ async function materializeCustomAdapterOutputs(
       : path.resolve(loaded.adapterDir, artifact.path);
     const relativeName = path.isAbsolute(artifact.path)
       ? path.basename(artifact.path)
-      : artifact.path.replace(/^\.?\//, '');
+      : toSafeAdapterRelativeName(artifact.path, `artifact-${index + 1}`);
     const targetPath = await materializeArtifactFile(
       sourcePath,
       instanceArtifactsDir,
-      path.join('adapter-files', relativeName)
+      path.posix.join('adapter-files', relativeName)
     ).catch(() => sourcePath);
 
     manifestEntries.push({
@@ -1270,7 +1341,7 @@ async function materializeCustomAdapterOutputs(
       : path.resolve(loaded.adapterDir, traceArtifact.path);
     const relativeName = path.isAbsolute(traceArtifact.path)
       ? path.basename(traceArtifact.path)
-      : traceArtifact.path.replace(/^\.?\//, '');
+      : toSafeAdapterRelativeName(traceArtifact.path, `trace-${index + 1}`);
     const traceRef = await materializeNativeTraceFile(
       instanceDir,
       sourcePath,
@@ -1384,12 +1455,13 @@ async function runCommand(argv: string[]): Promise<void> {
   }
 
   const layout = createRunLayout(args.runDir, args.runId);
+  const runStartedAt = new Date().toISOString();
   const metadata: RunMetadata = {
     runId: args.runId,
     benchmark: args.benchmark,
     harness: args.harness,
     model: args.modelName,
-    startedAt: new Date().toISOString(),
+    startedAt: runStartedAt,
     concurrency: 1,
     benchmarkConfig: {
       instanceId: args.instanceId,
@@ -1409,11 +1481,24 @@ async function runCommand(argv: string[]): Promise<void> {
   };
 
   await initializeRun(layout, metadata);
-  const result = args.harness === 'kode-agent-sdk'
-    ? await runKodeAgentSdk(args)
-    : args.harness === 'custom-adapter'
-      ? await runCustomAdapter(args)
-      : await runCliHarnessTask(args);
+  let result: ResultEnvelope;
+  try {
+    result = args.harness === 'kode-agent-sdk'
+      ? await runKodeAgentSdk(args)
+      : args.harness === 'custom-adapter'
+        ? await runCustomAdapter(args)
+        : await runCliHarnessTask(args);
+  } catch (error) {
+    const endedAt = new Date().toISOString();
+    result = normalizeRunFailure(args, error, runStartedAt, endedAt);
+    metadata.endedAt = endedAt;
+    await recordResult(layout, result);
+    await finalizeRun(layout, metadata, summarizeResults(args.runId, [result]));
+    console.error(result.error?.message || 'kbench run failed.');
+    process.exitCode = 2;
+    return;
+  }
+
   metadata.endedAt = new Date().toISOString();
   await recordResult(layout, result);
   await finalizeRun(layout, metadata, summarizeResults(args.runId, [result]));

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
+import { resolveMaterializedTargetPath } from './artifacts.js';
 import type { TraceRef } from './results.js';
 
 export type TraceSource = 'benchmark' | 'runtime' | 'harness' | 'agent' | 'system';
@@ -44,7 +45,7 @@ export async function materializeNativeTraceFile(
   relativeTargetPath: string
 ): Promise<TraceRef> {
   const traceDir = ensureTraceDir(instanceDir, 'native');
-  const targetPath = path.join(traceDir, relativeTargetPath);
+  const targetPath = resolveMaterializedTargetPath(traceDir, relativeTargetPath);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   await fs.promises.copyFile(sourcePath, targetPath);
   return {

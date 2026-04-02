@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+import { existsSync } from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..');
+const bundlePath = path.join(repoRoot, '.bench', 'kbench.cjs');
+
+process.env.KBENCH_REPO_ROOT = repoRoot;
+
+if (!existsSync(bundlePath)) {
+  process.stderr.write(
+    'Missing .bench/kbench.cjs. Run `npm run bench:bundle:cli` first, or `npm link` to trigger `prepare`.\n'
+  );
+  process.exit(1);
+}
+
+await import(pathToFileURL(bundlePath).href);

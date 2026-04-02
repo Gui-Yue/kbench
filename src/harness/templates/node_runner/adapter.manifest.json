@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "kbench.adapter/v1",
+  "id": "my-node-runner",
+  "kind": "node",
+  "entry": "./runner.mjs",
+  "version": "0.1.0",
+  "supportedBenchmarks": ["swe", "tb2"],
+  "capabilities": {
+    "runModes": ["task"],
+    "machineReadableStdout": true,
+    "supportsPatchOutput": true,
+    "supportsTrajectory": false,
+    "supportsToolCallTrace": true,
+    "supportsResume": false,
+    "supportsImages": false,
+    "supportsSandboxBridge": false,
+    "supportsPromptTemplate": false
+  }
+}

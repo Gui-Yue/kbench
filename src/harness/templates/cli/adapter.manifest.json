@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "kbench.adapter/v1",
+  "id": "my-cli-harness",
+  "kind": "cli",
+  "entry": "./runner.sh",
+  "version": "0.1.0",
+  "supportedBenchmarks": ["swe"],
+  "capabilities": {
+    "runModes": ["task"],
+    "machineReadableStdout": true,
+    "supportsPatchOutput": true,
+    "supportsTrajectory": false,
+    "supportsToolCallTrace": false,
+    "supportsResume": false,
+    "supportsImages": false,
+    "supportsSandboxBridge": false,
+    "supportsPromptTemplate": false
+  }
+}

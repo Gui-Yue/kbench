@@ -1,0 +1,217 @@
+name: SAE Benchmark
+run-name: SAE Benchmark | ${{ format('{0}/{1}', github.event.inputs.provider || 'openai', github.event.inputs.model || 'unset-model') }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      harness:
+        description: Harness to run inside kbench
+        required: true
+        type: choice
+        default: kode-agent-sdk
+        options:
+          - kode-agent-sdk
+      provider:
+        description: Model provider
+        required: true
+        type: choice
+        default: openai
+        options:
+          - openai
+          - anthropic
+          - gemini
+      model:
+        description: Model id for the selected provider
+        required: true
+        default: ""
+      base_url:
+        description: Optional base URL override for the selected provider
+        required: false
+        default: ""
+      sae_api_base:
+        description: SAE API base URL
+        required: false
+        default: https://www.kaggle.com/api/v1
+      sae_register_if_missing:
+        description: Auto-register a new SAE agent if credential files are missing
+        required: false
+        default: "false"
+      sae_agent_name:
+        description: Optional SAE agent name when auto-registering
+        required: false
+        default: ""
+      sae_agent_description:
+        description: Optional SAE agent description when auto-registering
+        required: false
+        default: ""
+      sae_agent_version:
+        description: SAE agent version when auto-registering
+        required: false
+        default: "1.0"
+      sae_agent_type:
+        description: SAE agent type label
+        required: false
+        default: kode-agent-sdk
+      sae_timeout_ms:
+        description: Overall SAE exam timeout in milliseconds
+        required: false
+        default: "1800000"
+      sae_poll_interval_ms:
+        description: Poll interval for final SAE submission status
+        required: false
+        default: "2000"
+      provider_retry_max_attempts:
+        description: Max provider retry attempts for transient API failures
+        required: false
+        default: "8"
+      provider_retry_initial_delay_ms:
+        description: Initial provider retry delay in milliseconds
+        required: false
+        default: "4000"
+      provider_retry_max_delay_ms:
+        description: Maximum provider retry delay in milliseconds
+        required: false
+        default: "60000"
+      provider_retry_backoff_multiplier:
+        description: Exponential backoff multiplier for provider retries
+        required: false
+        default: "2"
+
+jobs:
+  sae-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      KBENCH_HARNESS: ${{ github.event.inputs.harness || 'kode-agent-sdk' }}
+      MODEL_NAME: ${{ format('{0}/{1}', github.event.inputs.provider, github.event.inputs.model) }}
+      SAE_API_BASE: ${{ github.event.inputs.sae_api_base || 'https://www.kaggle.com/api/v1' }}
+      SAE_REGISTER_IF_MISSING: ${{ github.event.inputs.sae_register_if_missing || 'false' }}
+      SAE_AGENT_NAME: ${{ github.event.inputs.sae_agent_name || '' }}
+      SAE_AGENT_DESCRIPTION: ${{ github.event.inputs.sae_agent_description || '' }}
+      SAE_AGENT_VERSION: ${{ github.event.inputs.sae_agent_version || '1.0' }}
+      SAE_AGENT_TYPE: ${{ github.event.inputs.sae_agent_type || 'kode-agent-sdk' }}
+      SAE_TIMEOUT_MS: ${{ github.event.inputs.sae_timeout_ms || '1800000' }}
+      SAE_POLL_INTERVAL_MS: ${{ github.event.inputs.sae_poll_interval_ms || '2000' }}
+      KODE_BENCH_RETRY_MAX_ATTEMPTS: ${{ github.event.inputs.provider_retry_max_attempts || '8' }}
+      KODE_BENCH_RETRY_INITIAL_DELAY_MS: ${{ github.event.inputs.provider_retry_initial_delay_ms || '4000' }}
+      KODE_BENCH_RETRY_MAX_DELAY_MS: ${{ github.event.inputs.provider_retry_max_delay_ms || '60000' }}
+      KODE_BENCH_RETRY_BACKOFF_MULTIPLIER: ${{ github.event.inputs.provider_retry_backoff_multiplier || '2' }}
+      KODE_BENCH_RETRY_JITTER_RATIO: "0.2"
+      RUN_ID: sae-${{ github.run_id }}-${{ github.run_attempt }}
+      NO_REBUILD: "1"
+      OPENAI_API_KEY: ${{ github.event.inputs.provider == 'openai' && secrets.OPENAI_API_KEY || '' }}
+      OPENAI_BASE_URL: ${{ github.event.inputs.provider == 'openai' && (github.event.inputs.base_url || vars.OPENAI_BASE_URL) || '' }}
+      OPENAI_API: ${{ github.event.inputs.provider == 'openai' && vars.OPENAI_API || '' }}
+      ANTHROPIC_API_KEY: ${{ github.event.inputs.provider == 'anthropic' && secrets.ANTHROPIC_API_KEY || '' }}
+      ANTHROPIC_BASE_URL: ${{ github.event.inputs.provider == 'anthropic' && (github.event.inputs.base_url || vars.ANTHROPIC_BASE_URL) || '' }}
+      GEMINI_API_KEY: ${{ github.event.inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+      GEMINI_BASE_URL: ${{ github.event.inputs.provider == 'gemini' && (github.event.inputs.base_url || vars.GEMINI_BASE_URL) || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate selected provider config
+        shell: bash
+        env:
+          HARNESS: ${{ github.event.inputs.harness || 'kode-agent-sdk' }}
+          PROVIDER: ${{ github.event.inputs.provider }}
+          MODEL: ${{ github.event.inputs.model }}
+          SAE_REGISTER_IF_MISSING: ${{ github.event.inputs.sae_register_if_missing || 'false' }}
+          KAGGLE_AGENT_ID_SECRET: ${{ secrets.KAGGLE_AGENT_ID }}
+          KAGGLE_AGENT_API_KEY_SECRET: ${{ secrets.KAGGLE_AGENT_API_KEY }}
+          OPENAI_API_KEY_SECRET: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY_SECRET: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY_SECRET: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          [[ "$HARNESS" == "kode-agent-sdk" ]] || { echo "Unsupported harness: $HARNESS" >&2; exit 1; }
+          [[ -n "$MODEL" ]] || { echo "model is required" >&2; exit 1; }
+          case "$PROVIDER" in
+            openai)
+              [[ -n "${OPENAI_API_KEY_SECRET:-}" ]] || { echo "Missing OPENAI_API_KEY secret" >&2; exit 1; }
+              ;;
+            anthropic)
+              [[ -n "${ANTHROPIC_API_KEY_SECRET:-}" ]] || { echo "Missing ANTHROPIC_API_KEY secret" >&2; exit 1; }
+              ;;
+            gemini)
+              [[ -n "${GEMINI_API_KEY_SECRET:-}" ]] || { echo "Missing GEMINI_API_KEY secret" >&2; exit 1; }
+              ;;
+            *)
+              echo "Unsupported provider: $PROVIDER" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "${KAGGLE_AGENT_ID_SECRET:-}" || -z "${KAGGLE_AGENT_API_KEY_SECRET:-}" ]]; then
+            [[ "$SAE_REGISTER_IF_MISSING" == "true" ]] || {
+              echo "Missing KAGGLE_AGENT_ID/KAGGLE_AGENT_API_KEY secrets and auto-register is disabled." >&2
+              exit 1
+            }
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install KODE dependencies
+        run: |
+          npm ci
+          npm run bench:bundle:cli
+
+      - name: Prepare SAE credentials
+        shell: bash
+        env:
+          KAGGLE_AGENT_ID_SECRET: ${{ secrets.KAGGLE_AGENT_ID }}
+          KAGGLE_AGENT_API_KEY_SECRET: ${{ secrets.KAGGLE_AGENT_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${KAGGLE_AGENT_ID_SECRET:-}" && -n "${KAGGLE_AGENT_API_KEY_SECRET:-}" ]]; then
+            install -m 600 /dev/null "$HOME/.kaggle-agent-id"
+            install -m 600 /dev/null "$HOME/.kaggle-agent-api-key"
+            printf '%s\n' "$KAGGLE_AGENT_ID_SECRET" > "$HOME/.kaggle-agent-id"
+            printf '%s\n' "$KAGGLE_AGENT_API_KEY_SECRET" > "$HOME/.kaggle-agent-api-key"
+          fi
+
+      - name: Run SAE benchmark
+        run: |
+          ./bin/kbench benchmark run \
+            --benchmark sae \
+            --harness "$KBENCH_HARNESS" \
+            --model-name "$MODEL_NAME" \
+            --run-id "$RUN_ID" \
+            --sae-api-base "$SAE_API_BASE" \
+            --sae-register-if-missing "$SAE_REGISTER_IF_MISSING" \
+            --sae-agent-name "$SAE_AGENT_NAME" \
+            --sae-agent-description "$SAE_AGENT_DESCRIPTION" \
+            --sae-agent-version "$SAE_AGENT_VERSION" \
+            --sae-agent-type "$SAE_AGENT_TYPE" \
+            --sae-timeout-ms "$SAE_TIMEOUT_MS" \
+            --sae-poll-interval-ms "$SAE_POLL_INTERVAL_MS"
+
+      - name: Summarize SAE outputs
+        if: always()
+        shell: bash
+        run: |
+          RUN_DIR=".kbench/runs/$RUN_ID"
+          echo "## SAE Run" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Run dir: \`$RUN_DIR\`" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$RUN_DIR/summary.json" ]]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUN_DIR/summary.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f "$RUN_DIR/artifacts/sae/final_submission.json" ]]; then
+            echo "### Final Submission" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUN_DIR/artifacts/sae/final_submission.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload SAE artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sae-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .kbench/runs/${{ env.RUN_ID }}

@@ -683,6 +683,19 @@ function getDefaultTimeoutMs(benchmark: BenchmarkId, harness: string): number | 
   return undefined;
 }
 
+function parsePositiveIntegerFlag(values: Map<string, string>, name: string): number | undefined {
+  const raw = values.get(name);
+  if (raw === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid --${name}. Expected a positive integer.`);
+  }
+  return parsed;
+}
+
 function parseRunArgs(argv: string[]): RunCliArgs {
   const values = parseFlags(argv);
   const benchmark = values.get('benchmark') as BenchmarkId | undefined;
@@ -770,7 +783,7 @@ function parseBenchmarkRunArgs(argv: string[]): BenchmarkRunCliArgs {
     storeDirProvided: values.has('store-dir'),
     workDir: values.get('workdir') ? path.resolve(values.get('workdir') as string) : undefined,
     storeDir: values.get('store-dir') ? path.resolve(values.get('store-dir') as string) : undefined,
-    timeoutMs: values.get('sae-timeout-ms') ? Number(values.get('sae-timeout-ms')) : undefined,
+    timeoutMs: parsePositiveIntegerFlag(values, 'sae-timeout-ms'),
     saeApiBase: values.get('sae-api-base') || 'https://www.kaggle.com/api/v1',
     saeAgentIdFile: values.get('sae-agent-id-file') || '~/.kaggle-agent-id',
     saeApiKeyFile: values.get('sae-api-key-file') || '~/.kaggle-agent-api-key',
@@ -779,7 +792,7 @@ function parseBenchmarkRunArgs(argv: string[]): BenchmarkRunCliArgs {
     saeAgentDescription: values.get('sae-agent-description'),
     saeAgentVersion: values.get('sae-agent-version') || '1.0',
     saeAgentType: values.get('sae-agent-type') || harness,
-    saePollIntervalMs: values.get('sae-poll-interval-ms') ? Number(values.get('sae-poll-interval-ms')) : 2000,
+    saePollIntervalMs: parsePositiveIntegerFlag(values, 'sae-poll-interval-ms') ?? 2000,
   };
 }
 

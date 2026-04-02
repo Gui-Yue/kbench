@@ -234,6 +234,17 @@ function mergeSummary(summary: SummaryResult, benchmarkResult: Record<string, un
   };
 }
 
+function normalizePositiveMs(value: number | undefined, label: string, fallback?: number): number {
+  if (value === undefined) {
+    if (fallback !== undefined) return fallback;
+    throw new Error(`${label} is required.`);
+  }
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be a positive finite number of milliseconds.`);
+  }
+  return value;
+}
+
 function withTemporaryBaseUrl<T>(modelName: string, baseUrl: string | undefined, fn: () => Promise<T>): Promise<T> {
   if (!baseUrl) {
     return fn();
@@ -254,6 +265,8 @@ function withTemporaryBaseUrl<T>(modelName: string, baseUrl: string | undefined,
 }
 
 export async function runSaeBenchmark(config: SaeBenchmarkConfig): Promise<SaeBenchmarkOutcome> {
+  const saeTimeoutMs = normalizePositiveMs(config.saeTimeoutMs, 'saeTimeoutMs', 30 * 60 * 1000);
+  const saePollIntervalMs = normalizePositiveMs(config.saePollIntervalMs, 'saePollIntervalMs');
   const layout = createRunLayout(config.runDir, config.runId);
   const artifactDir = path.join(layout.runDir, 'artifacts', 'sae');
   const metadata: RunMetadata = {
@@ -270,8 +283,8 @@ export async function runSaeBenchmark(config: SaeBenchmarkConfig): Promise<SaeBe
       registerIfMissing: config.saeRegisterIfMissing,
       agentIdFile: expandHome(config.saeAgentIdFile),
       apiKeyFile: expandHome(config.saeApiKeyFile),
-      timeoutMs: config.saeTimeoutMs,
-      pollIntervalMs: config.saePollIntervalMs,
+      timeoutMs: saeTimeoutMs,
+      pollIntervalMs: saePollIntervalMs,
     },
     harnessConfig: {
       workDir: config.workDir,
@@ -292,7 +305,7 @@ export async function runSaeBenchmark(config: SaeBenchmarkConfig): Promise<SaeBe
   let credentials: SaeAgentCredentials | undefined;
 
   try {
-    const deadlineAt = Date.now() + (config.saeTimeoutMs ?? 30 * 60 * 1000);
+    const deadlineAt = Date.now() + saeTimeoutMs;
     const credentialState = await loadOrRegisterCredentials(client, config, artifactDir);
     credentials = credentialState.credentials;
 
@@ -330,7 +343,7 @@ export async function runSaeBenchmark(config: SaeBenchmarkConfig): Promise<SaeBe
       client,
       submission,
       credentials.apiToken,
-      config.saePollIntervalMs,
+      saePollIntervalMs,
       deadlineAt
     );
     await writeJson(path.join(artifactDir, 'final_submission.json'), submission);

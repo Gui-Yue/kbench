@@ -284,7 +284,7 @@ export async function validateAdapter(adapterPath: string): Promise<AdapterValid
   }
 
   return {
-    ok: loaded.schema.ok && entryValidation.ok && executionChecks.every((check) => check.ok || check.warnings.length > 0),
+    ok: loaded.schema.ok && entryValidation.ok && executionChecks.every((check) => check.ok),
     adapterPath: loaded.adapterPath,
     manifestPath: loaded.manifestPath,
     entryPath: loaded.manifest ? loaded.entryPath : undefined,

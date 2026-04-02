@@ -715,7 +715,7 @@ function parseRunArgs(argv: string[]): RunCliArgs {
   const runId = values.get('run-id') || nowId('run');
   const instanceId = values.get('instance-id') || `${benchmark}-instance`;
   const runDir = path.resolve(values.get('run-dir') || path.join(process.cwd(), '.kbench', 'runs', runId));
-  const explicitTimeoutMs = values.get('timeout-ms') ? Number(values.get('timeout-ms')) : undefined;
+  const explicitTimeoutMs = parsePositiveIntegerFlag(values, 'timeout-ms');
   const configModeValue = values.get('config-mode');
   if (configModeValue && configModeValue !== 'inherit' && configModeValue !== 'isolated') {
     throw new Error('Invalid --config-mode. Expected one of: inherit, isolated.');
